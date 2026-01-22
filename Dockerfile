@@ -1,12 +1,18 @@
-# Multi-stage build: Builder stage to download model
+# Multi-stage build: Builder stage to download models
 FROM ollama/ollama:latest AS builder
 
 # Start Ollama server in background and pull models
-# Give the server time to initialize before pulling
+# Four models for different use cases:
+# - llama2: General purpose conversations and tasks
+# - llama3.2: Latest general purpose model with improved performance
+# - codellama: Best for coding assistance and code generation
+# - orca-mini: Lightweight model for quick tasks and edge deployment
 RUN ollama serve & \
     sleep 10 && \
+    ollama pull llama2 && \
     ollama pull llama3.2 && \
-    ollama pull gemma:2b && \
+    ollama pull codellama && \
+    ollama pull orca-mini && \
     pkill -f "ollama serve"
 
 # Final stage: Runtime image with models included
@@ -18,8 +24,8 @@ COPY --from=builder /root/.ollama /root/.ollama
 # Configure Ollama server
 ENV OLLAMA_HOST=0.0.0.0:11434
 ENV OLLAMA_KEEP_ALIVE=24h
-ENV OLLAMA_MAX_LOADED_MODELS=2
-ENV OLLAMA_NUM_PARALLEL=2
+ENV OLLAMA_MAX_LOADED_MODELS=4
+ENV OLLAMA_NUM_PARALLEL=4
 ENV OLLAMA_FLASH_ATTENTION=1
 
 # Expose API port

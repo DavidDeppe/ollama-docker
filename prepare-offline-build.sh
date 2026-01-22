@@ -16,7 +16,7 @@ echo ""
 
 # Configuration
 BASE_IMAGE="ollama/ollama:latest"
-MODELS=("llama3.2" "gemma:2b")
+MODELS=("llama2" "llama3.2" "codellama" "orca-mini")
 OUTPUT_DIR="./offline-build-package"
 COMPRESS=true
 

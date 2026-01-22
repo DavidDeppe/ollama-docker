@@ -1,0 +1,6 @@
+*.tar
+*.tar.gz
+ollama_cache/
+ollama-docker/
+.DS_Store
+*.local
