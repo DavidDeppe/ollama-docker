@@ -1,0 +1,31 @@
+# Dockerfile.prebuilt - Most Offline-Friendly Approach
+# This uses COPY to include the base image filesystem directly
+# No network calls needed at all
+
+# Stage 1: Prepare the runtime with models
+# This assumes you've already extracted the ollama base image
+FROM scratch
+
+# Copy pre-extracted ollama filesystem
+COPY ollama-base-rootfs/ /
+
+# Set working directory
+WORKDIR /root
+
+# Pre-load models from tar files (if included)
+# COPY models/ /root/.ollama/
+
+# Configure Ollama
+ENV OLLAMA_HOST=0.0.0.0:11434
+ENV OLLAMA_KEEP_ALIVE=24h
+ENV OLLAMA_MAX_LOADED_MODELS=2
+ENV OLLAMA_NUM_PARALLEL=2
+
+EXPOSE 11434
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD curl -f http://localhost:11434 || exit 1
+
+ENTRYPOINT ["/bin/ollama"]
+CMD ["serve"]

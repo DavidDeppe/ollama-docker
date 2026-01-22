@@ -1,0 +1,37 @@
+# Dockerfile.offline - Works completely offline
+# This Dockerfile assumes ollama/ollama:latest is already available locally
+# as a Docker image (either loaded or pulled previously)
+
+FROM ollama/ollama:latest AS builder
+
+# Note: This stage requires the base image to be available locally
+# If network is unavailable, the image must be pre-loaded with: docker load -i base_image.tar
+
+# Start Ollama server in background and pull models
+# Models must be cached from previous runs or pre-loaded
+RUN ollama serve & \
+    sleep 10 && \
+    ollama pull llama3.2 && \
+    ollama pull gemma:2b && \
+    pkill -f "ollama serve"
+
+# Final runtime stage
+FROM ollama/ollama:latest
+
+# Copy pre-downloaded models from builder
+COPY --from=builder /root/.ollama /root/.ollama
+
+# Configure Ollama server
+ENV OLLAMA_HOST=0.0.0.0:11434
+ENV OLLAMA_KEEP_ALIVE=24h
+ENV OLLAMA_MAX_LOADED_MODELS=2
+ENV OLLAMA_NUM_PARALLEL=2
+ENV OLLAMA_FLASH_ATTENTION=1
+
+EXPOSE 11434
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD curl -f http://localhost:11434 || exit 1
+
+CMD ["serve"]

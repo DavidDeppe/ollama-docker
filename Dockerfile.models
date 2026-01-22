@@ -1,0 +1,46 @@
+# Dockerfile.models - Offline Build with Pre-Downloaded Models
+# Use this Dockerfile when you have models available as files (no network needed)
+#
+# WORKFLOW:
+# 1. Prepare on machine with network access:
+#    - Pull and cache models using ollama
+#    - Extract models directory: docker cp container:/root/.ollama/models ./models
+#    - Save base image: docker save ollama/ollama:latest -o ollama-base.tar
+#
+# 2. Transfer to offline machine:
+#    - ollama-base.tar
+#    - models/ directory
+#    - Dockerfile.models
+#
+# 3. On offline machine:
+#    - docker load -i ollama-base.tar
+#    - docker build -f Dockerfile.models -t ollama-preloaded:local .
+#    - docker run -d -p 11434:11434 ollama-preloaded:local
+
+# Stage 1: Builder - Copy models
+FROM ollama/ollama:latest AS builder
+
+# Pre-downloaded models must be in ./models directory
+# This COPY requires NO network access - just copies local files
+COPY ./models /root/.ollama/models
+
+# Stage 2: Runtime
+FROM ollama/ollama:latest
+
+# Copy model cache from builder
+COPY --from=builder /root/.ollama /root/.ollama
+
+# Configuration
+ENV OLLAMA_HOST=0.0.0.0:11434
+ENV OLLAMA_KEEP_ALIVE=24h
+ENV OLLAMA_MAX_LOADED_MODELS=2
+ENV OLLAMA_NUM_PARALLEL=2
+ENV OLLAMA_FLASH_ATTENTION=1
+
+EXPOSE 11434
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD curl -f http://localhost:11434 || exit 1
+
+CMD ["serve"]

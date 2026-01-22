@@ -1,0 +1,49 @@
+# Dockerfile.tar-based - Practical Offline Approach
+# This approach uses docker load to load a pre-saved image tar file
+# 
+# WORKFLOW:
+# 1. On a machine WITH network access:
+#    docker pull ollama/ollama:latest
+#    docker save ollama/ollama:latest -o ollama-base.tar
+#
+# 2. Transfer ollama-base.tar to offline machine
+#
+# 3. On offline machine, place ollama-base.tar in same directory as Dockerfile
+#
+# 4. Load the base image:
+#    docker load -i ollama-base.tar
+#
+# 5. Then build (requires models already cached):
+#    docker build -f Dockerfile.tar-based -t ollama-preloaded:offline .
+
+FROM ollama/ollama:latest AS builder
+
+# Note: Base image must be loaded first with: docker load -i ollama-base.tar
+# Models must already be in Docker's cache from previous pulls:
+# - /root/.ollama/models/llama3.2
+# - /root/.ollama/models/gemma:2b
+
+# If models aren't cached, they can be included as COPY from prebuilt directories:
+# COPY ./models/llama3.2 /root/.ollama/models/llama3.2
+# COPY ./models/gemma:2b /root/.ollama/models/gemma:2b
+
+# Or load them during build if ollama serve can access cached blobs:
+RUN ollama serve & \
+    sleep 10 && \
+    ollama pull llama3.2 && \
+    ollama pull gemma:2b && \
+    pkill -f "ollama serve" || true
+
+FROM ollama/ollama:latest
+
+COPY --from=builder /root/.ollama /root/.ollama
+
+ENV OLLAMA_HOST=0.0.0.0:11434
+ENV OLLAMA_KEEP_ALIVE=24h
+
+EXPOSE 11434
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD curl -f http://localhost:11434 || exit 1
+
+CMD ["serve"]
